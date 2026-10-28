@@ -1,0 +1,5 @@
+<configuration>
+  <property><name>dfs.replication</name><value>3</value></property>
+  <property><name>dfs.namenode.name.dir</name><value>/opt/hadoop-3.3.6/data/nn</value></property>
+  <property><name>dfs.datanode.data.dir</name><value>/opt/hadoop-3.3.6/data/dn</value></property>
+</configuration>
