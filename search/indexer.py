@@ -77,13 +77,28 @@ def build_postings(articles, num_articles):
     # collections.Counter), group the (article_id, tf) pairs by term, and
     # turn each tf into tf * ln(num_articles / df), where df is the number
     # of articles in the term's group.
-    raise NotImplementedError("build_postings")
+
+    def get_term_frequencies(row):
+        article_id, title, text = row 
+        term_counts = tokenize(text if text else "") # Count word occurrences, making sure not to crash if the text is None
+        return [(term, (article_id, tf)) for term, tf in Counter(term_counts).items()] # Make a list of tuples formatted as (word, (article, frequency)) for the flatMap
+    def compute_tfidf(row):
+        term, id_tf_iterable = row
+        id_tf_list = list(id_tf_iterable) # Convert the PySpark result iterable to a normal python list so I can call len() on it
+        df = len(id_tf_list) # The document frequency is just how many articles ended up in this list 
+        idf = math.log(num_articles / df) # Calculate the IDF part of the formula using the total article count passed in
+        postings = [(article_id, tf * idf) for article_id, tf in id_tf_list] # Multiply the term frequency by the IDF for each article in our list
+        return [(term, postings)]
+    return articles.flatMap(get_term_frequencies).groupByKey().flatMap(compute_tfidf) # Run the extraction, group all identical words together by key, then calculate the weights
+    # raise NotImplementedError("build_postings")
 
 
 def build_docs(articles, ranks):
     """Return an RDD of (article_id, (rank, title)) for every valid article."""
     # TODO: join each article's title with its rank.
-    raise NotImplementedError("build_docs")
+    titles_rdd = articles.map(lambda row: (row[0], row[1])) # Strip out the text and just keep the article ID as the key and title as the value
+    return ranks.join(titles_rdd) # Inner join matches up the IDs in the ranks RDD with the IDs in my titles RDD
+    # raise NotImplementedError("build_docs")
 
 
 # --- Given code -----------------------------------------------------------------

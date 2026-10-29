@@ -31,6 +31,8 @@ import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+import sqlite3
+
 TOP_K = 10
 
 # Tokenization rules of Project 1.
@@ -57,7 +59,9 @@ class SearchIndex:
         file); ignore it otherwise. Called once, when the server starts.
         """
         # TODO: implement.
-        raise NotImplementedError("SearchIndex.__init__")
+        # Connect to the SQLite file and allow multiple threads to read it at the same time so the API doesn't crash on concurrent requests
+        self.conn = sqlite3.connect(database, check_same_thread=False)
+        # raise NotImplementedError("SearchIndex.__init__")
 
     def search(self, terms):
         """Return the top TOP_K [(score, article_id, title)] for a set of terms.
@@ -68,7 +72,39 @@ class SearchIndex:
         """
         # TODO: implement. heapq.nsmallest(TOP_K, ..., key=lambda s: (-s[0], s[1]))
         # keeps the TOP_K best without sorting every match.
-        raise NotImplementedError("SearchIndex.search")
+
+        # If the user didn't search for anything, just return an empty list right away
+        if not terms:
+            return []
+            
+        # Open a cursor to talk to the database
+        cursor = self.conn.cursor()
+        
+        # Make a string of question marks like '?,?,?' to safely put our search terms into the SQL query
+        placeholders = ','.join(['?'] * len(terms))
+        
+        # Write the SQL query to join the tables, filter by our terms, group by article, and calculate the final score
+        # We sort in SQL (ORDER BY) and grab the top 10 (LIMIT) so we don't need to manually use heapq in Python
+        sql = f"""
+            SELECT a.article_id, a.title, (a.pagerank * SUM(p.weight)) as final_score
+            FROM articles a
+            JOIN postings p ON a.article_id = p.article_id
+            WHERE p.term IN ({placeholders})
+            GROUP BY a.article_id, a.title, a.pagerank
+            HAVING COUNT(DISTINCT p.term) = ?
+            ORDER BY final_score DESC, a.article_id ASC
+            LIMIT 10
+        """
+        
+        # Combine the search terms and the total count of unique terms into one list to pass into the SQL placeholders
+        params = list(terms) + [len(terms)]
+        
+        # Run the big SQL query with our parameters
+        cursor.execute(sql, params)
+        
+        # Loop through the database results and format them exactly as (score, id, title) like the docstring asked
+        return [(row[2], row[0], row[1]) for row in cursor.fetchall()]
+        # raise NotImplementedError("SearchIndex.search")
 
 
 # --- Given code -----------------------------------------------------------------
