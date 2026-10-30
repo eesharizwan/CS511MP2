@@ -111,6 +111,7 @@ then
     abort "manifest.json is unusable: $(cat "$OUT_DIR/manifest.err")"
 fi
 
+sed -i "s/\r$//" "$OUT_DIR/checksums.sha256"
 declared_chunks=$(wc -l < "$OUT_DIR/checksums.sha256")
 found_chunks=$(find "$DATA_DIR" -maxdepth 1 -name '*.jsonl.zst' | wc -l)
 # The underscore and hyphen names represent one chunk, not two.
